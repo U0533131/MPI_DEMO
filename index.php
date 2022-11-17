@@ -8,17 +8,68 @@
 	$conn = new PDO('sqlite:db/MPI.sqlite3');
 	
     //檔案不存在則建立TABLE
-	$query = "CREATE TABLE IF NOT EXISTS user (
+	$query = "CREATE TABLE IF NOT EXISTS users (
         C_Id INTEGER PRIMARY KEY AUTOINCREMENT, 
         C_Name VARCHAR(20) NOT NULL, 
-        Gender VARCHAR(1) NOT NULL, 
+        Gender VARCHAR(6) NOT NULL, /*varchar最多存入6個字元長度 如果用chard空的會填空*/ 
         Addr VARCHAR(50), 
-        Phone VARCHAR(10) NOT NULL UNIQUE, /*不許允空值也不允許重複*/ 
+        Phone VARCHAR(10) NOT NULL,  
         Birthday DATE NOT NULL
     )";
 
 	//執行query
 	$conn->exec($query);
+
+
+
+    /*POST*/
+    if(ISSET($_POST['submit'])){
+
+        $Phone = $_POST["Phone"];
+
+        //確認電話是否有重複 有則返回error
+        $sql = $conn->prepare("SELECT count(*) FROM users WHERE Phone = ?");
+        $sql->execute([$Phone]);
+        $result = $sql->fetchColumn(); //rowCount() 
+        //檢查有沒有重複的資料 print $result."-".$Phone;
+        if($result > 0){
+            $error = "<span style=color:red>電話已存在，請重新輸入。</span>";
+        }
+        
+        $C_Name = $_POST['C_Name'];
+        $Gender = $_POST["Gender"];
+        $Addr = $_POST["Addr"];
+        $Birthday = $_POST["Birthday"];
+        
+        if(empty($error)){
+        //變數前加上:表示為placeholder
+		$query=$conn->prepare("INSERT INTO users(C_Name, Gender, Addr, Phone, Birthday) 
+        VALUES(:C_Name, :Gender, :Addr, :Phone, :Birthday)");
+        $query->execute([
+            'C_Name' => $C_Name,
+            'Gender' => $Gender,
+            'Addr' => $Addr,
+            'Phone' => $Phone,
+            'Birthday' => $Birthday
+        ]);
+
+        $msg = "<span style='color:blue'>已成功建立！</span>";
+        }
+
+/*
+        //prepare()準備要執行的SQL語句
+        $stmt=$conn->prepare($query);
+        $stmt->bindParam(':C_Name',$C_Name ); //綁定參數到指定的變數名
+        $stmt->bindParam(':Gender',$Gender);
+        $stmt->bindParam(':Addr',$Addr);
+        $stmt->bindParam(':Phone',$Phone);
+        $stmt->bindParam(':Birthday',$Birthday);
+
+        if($stmt->execute()){ //執行綁定參數的預處理語句
+        }
+*/
+
+	}
 ?>
 
 <!DOCTYPE html>
@@ -84,7 +135,7 @@
 
 <body>
     <div class="customers_form">  
-        <form name="myForm" method="post" action="post.php">
+        <form name="myForm" method="post" action="index.php">
             <!--顯示清單-->
             <div>
                 <?php
@@ -95,9 +146,16 @@
                 <td>Gender</td> <td>Address</td> 
                 <td>Phone</td> <td>Birthday</td> </tr>";
 
-                $result=$db->query('SELECT * FROM user');
-
-                foreach($result as $row){
+                $result=$db->query('SELECT * FROM users');
+/*
+foreach讀取陣列資料 (1)$array as $value (2)$array as $key => $value
+另個寫法: 
+$query='SELECT...';
+foreach($result->query($query) as $row){
+    print $row['...'];
+}
+*/
+                foreach($result as $row){ 
                     print "<tr><td>".$row['C_Id']."</td>";
                     print "<td>".$row['C_Name']."</td>";
                     print "<td>".$row['Gender']."</td>";
@@ -113,14 +171,16 @@
             </div>
             <!--輸入表單-->
             <h1>新增客戶資料</h1>
+            <?php if(isset($error)){echo $error;}?>
+            <?php if(isset($msg)){echo $msg;}?>
             <p>請按照格式輸入</p>
             <div class="form_group"><label>姓名：</label>
                 <input name="C_Name" type="text" class="form-control item"  placeholder="請輸入Name" autocomplete="off" required="required">
             </div>
             <div class="form_group"><label>性別：</label>
                 <select name="Gender"class="form-control item"  placeholder="選擇Gender" required="required">
-                <option value="Male">男</option>
-                <option value="Female">女</option>
+                <option value="Male">男(Male)</option>
+                <option value="Female">女(Female)</option>
                 </select>
             </div>
             <div class="form_group"><label>地址：</label>
